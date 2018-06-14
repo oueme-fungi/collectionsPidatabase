@@ -11,3 +11,12 @@ MongoClient.connect(settings.dbURL, function(err, db) {
     db.close();
   });
 }); 
+MongoClient.connect(settings.dbURL, function(err, db) {
+  if (err) throw err;
+  var dbo = db.db(settings.database);
+    dbo.ensureIndex(settings.collection,"accno", function(err, opt) {
+	if (err) throw err;
+	console.log("Index created!");
+    db.close();
+    });
+});

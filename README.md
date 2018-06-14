@@ -2,7 +2,7 @@
 A node JS server hosting a mongoDB database, and a html5 app to interact with it.
 All files should be on a server. The client_side_app.html will be served to the client but can also be used directly on the client, except for that the database cannot be loaded from the server and new data cannot be submitted to or updated in the database.
 
-We use this server on a raspberryPi zero W, to be served on a local network. The security is thus in who has the password to the network.
+We use this server on a Raspberry Pi Zero W, to be served on a local network. The security is thus in who has the password to the network.
 
 The following is a guide to set up the Pi server:
 
@@ -22,7 +22,7 @@ sudo apt-get update
 sudo apt-get upgrade
 
 For node JS server, before making local network
-Download, compile and install node.js
+Download and install node.js (note that the version of node.js depend of what pi you use this is for Pi Zero W)
 
 curl -o node-v8.11.1-linux-armv6l.tar.gz https://nodejs.org/dist/v8.11.1/node-v8.11.1-linux-armv6l.tar.gz
 tar -xzf node-v8.11.1-linux-armv6l.tar.gz
@@ -39,11 +39,19 @@ sudo shutdown -r now
 npm install pm2@latest -g
 npm install mongodb --save
 
-scp NGtrippServer.js to a folder on the server
+scp iall files to a folder suitable folder on the server (e.g. web)
+
+The server is created in node.js using NGtrippServer.js
+pm2 will run the server as a service that will start automatically when the Pi starts
+The server script is in NGtrippServer.js
 
 pm2 start NGtrippServer.js
 
 pm2 startup
-run given command with neede changes (folder pm -> pm2)
+run given command with needed changes (folder pm -> pm2)
+
+The settings.json file include database settings. If you want any particular name on your collection you can set it here.
+The other javascripts (.js) are for database maintenance (creating database based on settings, or deleting documents from database)
 
 To set up local network check out check out https://www.raspberrypi.org/documentation/configuration/wireless/access-point.md
+Do this last as you may not have any internet connection afterwards, depending on your setup
