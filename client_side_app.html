@@ -17,9 +17,10 @@ table, th, td {
     <button type="button" onclick="table_of_new_entries()">Entries to submit</button> <br/>
     <button type="button" onclick="table_of_database()">View local database as table</button> <br/>
     <button type="button" onclick="delete_new_entries()">Reset new entries</button> 
-    <button type="button" onclick="delete_database()">Reset local database</button> 
+    <button type="button" onclick="delete_database()">Reset local database</button><br/> 
     <button type="button" onclick="save_database_as_JSON()">Save database as JSON</button>
-    <button type="button" onclick="load_database_from_JSON">Load JSON database</button>
+    <button type="button" onclick="load_database_from_JSON()">Load JSON database</button><br/>
+    <a href="/templet.csv">Get template</a>
 </nav>
 <div id="output"></div>
 <script>
@@ -55,6 +56,7 @@ function pars_csv_to_new_entries ( text ) {
 	'sing':0,
 	'dub':0,
 	'tab':0,
+	'semi':0,
 	'n':0,
 	'r':0,
 	'n_b_r':0,
@@ -69,9 +71,10 @@ function pars_csv_to_new_entries ( text ) {
 	    if (i < text.length-1 && text.charAt(i+1) === "\n") { ++count.r_b_n; ++i;}
 	    else { ++count.r; }
 	}
-	else if (text.charAt(i) === ',' || text.charAt(i) === "\t") {
+	else if (text.charAt(i) === ',' || text.charAt(i) === "\t" || text.charAt(i) === ';') {
 	    if (text.charAt(i) === ',') { ++count.comma; }
 	    else if (text.charAt(i) === "\t") { ++count.tab; }
+	    else if (text.charAt(i) === ";") { ++count.semi; }
 	    if (i > 0) {
 		if (text.charAt(i-1) === "'") { ++count.sing; }
 		else if (text.charAt(i-1) === '"') { ++count.dub; }
@@ -93,6 +96,7 @@ function pars_csv_to_new_entries ( text ) {
     // Decide on column separator
     console.log("N rows: " + n_rows);
     if (count.tab >= n_rows) { separator = "\t"; } // if more or as many tabs as row tab is separator
+    else if (count.semi >= n_rows) { separator = ';'; }
     else if (count.comma >= n_rows) { separator = ','; } // otherwise if there are as many or more commas as rows comma is separator
     // Decide on text delimitor
     if (count.dub > 0 && count.dub >= count.sing) { delimitor = '"'; }
@@ -101,17 +105,18 @@ function pars_csv_to_new_entries ( text ) {
     // start parsing
     var rows = text.split(newline);
     var headers = [];
-    var comment_pattern = new RegExp(/s*#/);
+    var EXPR = "^\\s*" + delimitor + "?#";
+    var comment_pattern = new RegExp(EXPR);///\s*#/);
     for (i=0; i < rows.length; ++i) {
 	if (comment_pattern.test(rows[i])) { continue; }
 	// if no headers pars headers
 	if (headers.length < 1) {
 	    var cellno = 0;
 	    console.log("Parsing headers");
-	    console.log("Parsing column: " + cellno);
+	    //console.log("Parsing column: " + cellno);
 	    headers[cellno] = '';
 	    for (var j=0; j < rows[i].length; ++j) {
-		if (delimitor && rows[i].charAt(j) === delimitor) {
+		if (delimitor && rows[i].charAt(j) === delimitor && (j===0 || rows[i].charAt(j-1) === separator)) {
 		    ++j;
 		    for (; j < rows[i].length; ++j) {
 			// handle escape of text delimitor
@@ -130,11 +135,10 @@ function pars_csv_to_new_entries ( text ) {
 	else { // If headers already parsed, pars entries
 	    var cellno = 0;
 	    var entry = {};
-	    entry[headers[cellno]] = '';
 	    console.log("Parsing row: " + i)
 	    for (var j=0; j < rows[i].length; ++j) {
-		console.log("Parsing column: " + cellno);
-		if (delimitor && rows[i].charAt(j) === delimitor) {
+		//console.log("Parsing column: " + cellno);
+		if (delimitor && rows[i].charAt(j) === delimitor && (j===0 || rows[i].charAt(j-1) === separator)) {
 		    ++j;
 		    for (; j < rows[i].length; ++j) {
 			// handle escape of text delimitor
@@ -142,17 +146,21 @@ function pars_csv_to_new_entries ( text ) {
 			    if (j < rows[i].length-1 && rows[i].charAt(j+1) === delimitor) { ++j; }
 			    else { break; }
 			}
-			if (headers[cellno]) { entry[headers[cellno]] += rows[i].charAt(j); } // only add if header present
+			if (headers[cellno]) {
+			    if (!entry[headers[cellno]]) entry[headers[cellno]] = '';
+			    entry[headers[cellno]] += rows[i].charAt(j);
+		       	} // only add if header present
 		    }
 		}
 		else if (rows[i].charAt(j) === separator) {
-		    if (headers[cellno] === 'accno') { entry[headers[cellno]] = entry[headers[cellno]].toUpperCase(); }
 		    ++cellno;
-		    if (headers[cellno]) { entry[headers[cellno]] = ''; }
 		}
-		else if (headers[cellno]) { entry[headers[cellno]] += rows[i].charAt(j); }
+		else if (headers[cellno]) {
+		    if (!entry[headers[cellno]]) entry[headers[cellno]] = '';
+		    entry[headers[cellno]] += rows[i].charAt(j);
+		}
 	    }
-	    if (headers[cellno] === 'accno') { entry[headers[cellno]] = entry[headers[cellno]].toUpperCase(); }
+	    if (entry.accno) { entry['accno'] = entry['accno'].toUpperCase(); }
 	    add_new_entry(entry);
 	    console.log(new_entries.length + " new entries");
 	}
@@ -169,7 +177,7 @@ function pars_file (f) {
 	document.getElementById("output").innerHTML = "<p>Parsed: " + new_entries.length + " entries</p>\n";
 	document.getElementById("output").innerHTML += table_of_entries(new_entries); 
 	document.getElementById("output").innerHTML += '<button type="button" onclick="submit_to_database()">Submit to database</button>'; 	
-	document.getElementById("output").innerHTML += '<br><button type="button" onclick="update_database()">Update database</button>'; 	
+	document.getElementById("output").innerHTML += '<br/><button type="button" onclick="update_database()">Update database</button>'; 	
     }
     reader.readAsText(f);
 }
@@ -177,15 +185,21 @@ function pars_file (f) {
 // Print home
 function start () {
     output = '<h1>WACTM NG trip database interface</h1>';
-    output += '<p>This is the interface to a central collection database. You can upload data in comma or tab separated table format. ';
+    output += '<p>This is the interface to a central collection database. You can upload data in comma, semicolon, or tab separated table format (often having ending .csv). ';
     output += 'Lines that start with # in the first cell will be ignored. The first line that is read will be interpreted as containing headers. ';
-    output += 'All headers will be read as in lower case letters. A header called accno is required and all entries need to have a unique value in that column. ';
+    output += 'All headers will be read as in lower case letters. A header called accno is required (for voucher code) and all entries need to have a unique value in that column. ';
     output += 'Headers starting with _ will be ignored when writing the database.</p>';
     output += '<p>Reloading any page may delete any uploaded information</p>';
+    output += '<p>Load/reload databse before and after submitting sequences. Before to check for duplicates and after to check that things were uploaded correct.</p>';
     output += '<p>Number of entries in local database: ' + database.length + '<br/>Number of entries loaded but not submitted to database: ' + new_entries.length + '</p>';
-    //output += '<button type="button" onclick="submit_to_database()">JSON entry</button><br/>';
-    //output += '<button type="button" onclick="download_database()">Update database</button><br/>';
-
+    /*fetch("/getsites").then(function(resp) { return resp.json(); }).then(function (myJson) { sites = myJson; }).then(function () {
+	console.log(database);
+	output = "<h1>Read data</h1>\n";
+	output += table_of_entries(sites);
+	output += '</p>';
+	output += '<br/><button type="button" onclick="add_to_sites">Add sites</button>';
+	document.getElementById("output").innerHTML += output;
+    });*/
     document.getElementById("output").innerHTML = output;
 }
 function pars_textarea () {
@@ -205,9 +219,10 @@ function pars_JSON_file (f) {
         console.log("start parsing");
         var text = reader.result;
 	database = JSON.parse(text);
-	    document.getElementById("output").innerHTML = "<p>Parsed: " + database.length + " entries</p>\n";
+	document.getElementById("output").innerHTML = "<p>Parsed: " + database.length + " entries</p>\n";
         document.getElementById("output").innerHTML += table_of_entries(database); 
     }
+    reader.readAsText(f);
 }
 
 function load_database_from_JSON () {
@@ -274,9 +289,9 @@ function get_headers ( entryList ) {
     var headers = [];
     for (var i=0; i< entryList.length;++i) {
 	for (name in entryList[i]) {
-	    console.log("testing: " + name);
+	    //console.log("testing: " + name);
 	    if (entryList[i].hasOwnProperty(name)) {
-		console.log(headers);
+		//console.log(headers);
 		if (name.charAt(0) !== '_' && !headers.includes(name)) {
 		    headers.push(name);
 		}
@@ -307,31 +322,32 @@ function table_of_entries ( entryList ) {
     return output;
 }
 
-function get_database_as_csv ( entryList ) {
-    cvs = '';
-    headers = get_headers( entryList );
+function get_database_as_csv ( entryList, separator = ';' ) {
+    var cvs = '';
+    var headers = get_headers( entryList );
     for (i = 0; i < headers.length; ++i) {
 	var header = headers[i];
-	if (header.search(',') >= 0 || header.search('"') >= 0) {
-	    console.log("adding text delimitor for: " + header);
+	if (header.search(separator) >= 0 || header.search('"') >= 0) {
+	    //console.log("adding text delimitor for: " + header);
 	    header = header.replace(/"/g,'""');
 	    header = '"' + header + '"';
 	}
-	if (i > 0) cvs += ',';
+	if (i > 0) cvs += separator;
         cvs += header;
     }
     cvs += '\n';
     for (i=0; i< entryList.length; ++i) {
 	for (var j=0; j < headers.length; ++j) {
-	    if (j >0) cvs += ",";
+	    if (j >0) cvs += separator;
 	    if (entryList[i][headers[j]]) {
 		var value = entryList[i][headers[j]];
-		if (value.search(',') >= 0 || value.search('"') >= 0) {
-		    value = value.replace(/"/g,'""');
-		    value = '"' + value + '"';
+		if (value) {
+		    if (value.search(separator) >= 0 || value.search('"') >= 0) {
+			value = value.replace(/"/g,'""');
+			value = '"' + value + '"';
+		    }
+		    cvs += value;
 		}
-
-		cvs += value;
 	    }
 	}
 	cvs += "\n";
@@ -340,7 +356,7 @@ function get_database_as_csv ( entryList ) {
 }
 
 function submit_to_database () {
-    document.getElementById("output").innerHTML += "<h1>Submitting new entries to database<h1>";
+    document.getElementById("output").innerHTML = "<h1>Submitting new entries to database<h1>";
     var submit = true;
     var to_submit = [];
     var not_to_submit = [];
@@ -353,26 +369,34 @@ function submit_to_database () {
 	    new_entries = not_to_submit;
 	}
     }
-    else { //Add check against database
+    else { 
 	for (var i=0; i < new_entries.length; ++i) {
-	    if (!new_entries[i].accno) {
-		not_to_submit.push(new_entries[i]);
-		continue;
-	    }
-	    for (var j=0; j < database.length; j++) {
-		if (!database[j].accno) continue;
-		if (database[j].accno === new_entries[i].accno) {
+	    for (var j=0; j < to_submit.length; ++j) {
+		if (new_entries[i].accno === to_submit[j].accno) {
 		    not_to_submit.push(new_entries[i]);
 		    break;
 		}
 	    }
-	    if (not_to_submit.length === 0 || not_to_submit[not_to_submit.length-1] !== new_entries[i]) { to_submit.push(new_entries[i]); }
+	    if (not_to_submit.length === 0 || not_to_submit[not_to_submit.length-1] !== new_entries[i]) {
+		if (!new_entries[i].accno) {
+		    not_to_submit.push(new_entries[i]);
+		    continue;
+		}
+		for (var j=0; j < database.length; ++j) {
+		    if (!database[j].accno) continue;
+		    if (database[j].accno === new_entries[i].accno) {
+			not_to_submit.push(new_entries[i]);
+			break;
+		    }
+		}
+		if (not_to_submit.length === 0 || not_to_submit[not_to_submit.length-1] !== new_entries[i]) { to_submit.push(new_entries[i]); }
+	    }
 	}
     }
-    //output += '<p>WARNING!!! No database loaded, <button type="button" onclick="download_database()">load database</button> (this may be due to that there are no collections in the database yet)</p>';
-    console.log('Submit interface');
+    console.log('Submit interface. Submitting: ' + to_submit.length);
+    document.getElementById("output").innerHTML += "<p>Trying to submit " + to_submit.length + " entries.</p>";
     if (submit && to_submit.length > 0) {
-	//do check against self
+	console.log('Submitting: ' + to_submit.length);
 	fetch("/submitdata", {
 	    method: 'POST',
 	    body: JSON.stringify(to_submit),
@@ -417,7 +441,6 @@ function update_database () {
     }
     console.log('Update interface');
     if (submit) {
-	// do check against self
 	fetch("/updatedatabase", {
 	    method: 'POST',
 	    body: JSON.stringify(new_entries),
@@ -438,12 +461,12 @@ function save_database_as_JSON () {
 
 function save_database_as_table() {
     var data = new Blob ([get_database_as_csv(database)],{type: 'text/plain'});
-    saveAs(data,"database.cvs");
+    saveAs(data,"database.csv");
 }
 
 function save_new_entries_as_table() {
     var data = new Blob ([get_database_as_csv(new_entries)],{type: 'text/plain'});
-    saveAs(data,"new_entries.cvs");
+    saveAs(data,"new_entries.csv");
 }
 
 function download_database () {

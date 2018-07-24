@@ -1,8 +1,14 @@
 var http = require('http');
 var fs = require('fs');
-var MongoClient = require('mongodb').MongoClient;
+//var MongoClient = require('mongodb').MongoClient;
+
+var inuse = 0;
 
 var settings = JSON.parse(fs.readFileSync('settings.json','utf-8'));
+
+process.on('beforeExit', function(code) {
+    console.log("Exit with code: " + code);
+});
 
 function URLpars ( url ) {
     var returnObject = {'path':''};
@@ -26,16 +32,25 @@ function URLpars ( url ) {
 http.createServer(function (req, res) {
     var URL = URLpars(req.url);
     var output = 'nothing';
-    //var search = url.searchParams(req.url);
     if (!URL.path || URL.path === '/index.html' || URL.path === '/' || URL.path === 'data') {
 	res.writeHead(200, {'Content-Type': 'text/html'});
-	console.log('serv client side app');
+	console.log('serve client side app');
 	fs.readFile("client_side_app.html", function (err, data) {
 	    if (err) { throw err; }
 	    res.write(data);
 	    res.end();
 	});
-	fs.readFile
+	fs.readFile;
+    }
+    else if (URL.path === "/templet" || URL.path === '/templet.csv') {
+	res.writeHead(200,{'Content-Type': 'text'});
+	console.log('serve templet');
+	fs.readFile("templet.csv", function (err, data) {
+	    if (err) { throw err; }
+	    res.write(data);
+	    res.end();
+	});
+	fs.readFile;
     }
     else if (URL.path === '/submitdata') {
 	console.log('handle submitted data');
@@ -43,25 +58,20 @@ http.createServer(function (req, res) {
 	var body = '';
 	req.on('data', function (chunk) { body += chunk.toString(); } )
 	req.on('end', function () {
-	    //if (body.length < 1) { body = 'no data'; }
-	    //var start =0; var end = body.length;
-	    //var n_left=0;
-	    //var i;
 	    console.log(body);
 	    var data = JSON.parse(body);
 	    if (data.length > 0) {
 		console.log(data);
-		MongoClient.connect(settings.dbURL, function(err, db) {
-		    if (err) throw err;
-		    var dbo = db.db(settings.database);
-		    dbo.collection(settings.collection).insertMany(data, function(err, resend) {
-			if (err) throw err;
-			console.log("Inserted " + resend.insertedCount + " documents");
-			output = "Added " + resend.insertedCount + " entries.";
-			db.close();
-			res.end(output);
-		    });
-		}); 
+		while (inuse) { console.log("Waiting for databse");}
+		inuse = 1;
+		var database = JSON.parse(fs.readFileSync('database.json','utf-8'));
+		var length = database.length;
+		database = database.concat(data);
+		fs.writeFileSync('database.json',JSON.stringify(database));
+		inuse = 0;
+		console.log("Inserted " + (database.length - length) + " documents");
+		output = "Added " + (database.length - length) + " entries.";
+		res.end(output);
 	    }
 	    else res.end('No entries recieved. May be due to format error.');
 	});
@@ -72,34 +82,30 @@ http.createServer(function (req, res) {
 	var body = '';
 	req.on('data', function (chunk) { body += chunk.toString(); } )
 	req.on('end', function () {
-	    //if (body.length < 1) { body = 'no data'; }
-	    //var start =0; var end = body.length;
-	    //var n_left=0;
-	    //var i;
-	    //console.log(body);
 	    var data = JSON.parse(body);
-	    console.log(data);
 	    if (data.length > 0) {
 		var n_updated=0;
 		var no = 0;
+		while (inuse) { console.log("Waiting for databse");}
+		inuse = 1;
+		var database = JSON.parse(fs.readFileSync('database.json','utf-8'));
 	    	for (var i=0; i<data.length; ++i) {
 		    if (data[i].accno) {
-			MongoClient.connect(settings.dbURL, function(err, db) {
-			    if (err) throw err;
-			    var dbo = db.db(settings.database);
-			    var entry = data[no];
-			    ++no;
-			    dbo.collection(settings.collection).updateMany({accno: entry.accno}, {$set: entry}, function(err, resend) {
-				if (err) throw err;
-				console.log("Updated " + resend.result.nModified + " " + entry.accno);
+			for (var j=0; j<database.length; ++j) {
+			    if (database[j].accno && data[i].accno === database[j].accno) {
+				for (column in data[i]) {
+				    if (data[i].hasOwnProperty(column)) {
+					database[j][column] = data[i][column];
+				    }
+				}
 				++n_updated;
-				db.close();
-				res.end(output);
-			    });
-			});
+			    }
+			}
 		    }
 		}
-		res.end('Updated database. Recommend reloding local database');
+		fs.writeFileSync('database.json',JSON.stringify(database));
+		inuse = 0;
+		res.end('Updated ' + n_updated + ' entries in database. Recommend reloding local database');
 	    }
 	    else res.end('No entries recieved. May be due to format error.');
 	});
@@ -107,16 +113,41 @@ http.createServer(function (req, res) {
     }
     else if (URL.path === "/getdatabase") {
 	console.log('fetching database data');
-	//res.writeHead(200, {'Content-Type': 'text/html'});
-	MongoClient.connect(settings.dbURL, function(err, db) {
-	    if (err) throw err;
-    	    var dbo = db.db(settings.database);
-	    dbo.collection(settings.collection).find({}).toArray(function (err,result) {
-		if (err) throw err;
-		res.write(JSON.stringify(result));
-		db.close();
-		res.end();
-	    });
+	while (inuse) { console.log("Waiting to read database"); }
+	inuse = 1;
+	res.write(fs.readFileSync('database.json','utf-8'));
+	inuse = 0;
+	res.end();
+    }
+    else if (URL.path === "/getsites") {
+	console.log('fatching sites');
+	while (inuse) { console.log("Waiting to read database"); }
+	inuse = 1;
+	res.write(fs.readFileSync('sites.json','utf-8'));
+	inuse = 0;
+	res.end();
+    }
+    else if (URL.path === '/addsites') {
+	console.log('add new site');
+	res.writeHead(200, {'Content-Type': 'text/html'});
+	var body = '';
+	req.on('data', function (chunk) { body += chunk.toString(); } )
+	req.on('end', function () {
+	    console.log(body);
+	    var data = JSON.parse(body);
+	    if (data.length > 0) {
+		console.log(data);
+		while (inuse) { console.log("Waiting for databse");}
+		inuse = 1;
+		var database = JSON.parse(fs.readFileSync('sites.json','utf-8'));
+		database = database.concat(data);
+		fs.writeFileSync('sites.json',JSON.stringify(database));
+		inuse = 0;
+		console.log("Inserted " + (database.length - length) + " documents");
+		output = "Added " + (database.length - length) + " entries.";
+		res.end(output);
+	    }
+	    else res.end('No entries recieved. May be due to format error.');
 	});
     }
     else {
@@ -126,3 +157,4 @@ http.createServer(function (req, res) {
 	res.end();
     }
 }).listen(8080); 
+
