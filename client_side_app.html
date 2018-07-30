@@ -175,7 +175,7 @@ function pars_file (f) {
 	var text = reader.result;
 	pars_csv_to_new_entries (text);
 	document.getElementById("output").innerHTML = "<p>Parsed: " + new_entries.length + " entries</p>\n";
-	document.getElementById("output").innerHTML += table_of_entries(new_entries); 
+	table_of_entries(new_entries,document.getElementById("output")); 
 	document.getElementById("output").innerHTML += '<button type="button" onclick="submit_to_database()">Submit to database</button>'; 	
 	document.getElementById("output").innerHTML += '<br/><button type="button" onclick="update_database()">Update database</button>'; 	
     }
@@ -208,7 +208,7 @@ function pars_textarea () {
     console.log(text);
     pars_csv_to_new_entries (text);
     document.getElementById("output").innerHTML = "<p>Parsed: " + new_entries.length + " entries</p>\n";
-    document.getElementById("output").innerHTML += table_of_entries(new_entries); 
+    table_of_entries(new_entriesdocument.getElementById("output")); 
     document.getElementById("output").innerHTML += '<button type="button" onclick="submit_to_database()">Submit to database</button>'; 	
     document.getElementById("output").innerHTML += '<br><button type="button" onclick="update_database()">Update database</button>'; 	
 }
@@ -219,8 +219,9 @@ function pars_JSON_file (f) {
         console.log("start parsing");
         var text = reader.result;
 	database = JSON.parse(text);
+	// output_area = document.getElementById("output");
 	document.getElementById("output").innerHTML = "<p>Parsed: " + database.length + " entries</p>\n";
-        document.getElementById("output").innerHTML += table_of_entries(database); 
+        table_of_entries(database,document.getElementById("output")); 
     }
     reader.readAsText(f);
 }
@@ -267,19 +268,68 @@ function add_from_file () {
     }, false);
 }
 
-function add_manually() {
-
+function add_manually(i) {
+}
+function get_envelope( entry ) {
+    console.log("getting envelops");
+    var svg = "<svg width=\"210mm\" height=\"297mm\"\nxmlns=\"http://www.w3.org/2000/svg\" version=\"1.2\" streamable=\"true\">\n<pageSet>\n<page>\n";
+    if (entry.accno) {
+	svg += '<text x="50mm" y="85mm" font-family="Arial" font-size="12">' + entry.accno + "</text>\n";
+    }
+    if (entry.year || entry.month || entry.day || entry.date) {
+	svg += '<text x="150mm" y="85mm" font-family="Arial" font-size="12">';
+	if (entry.date) {
+	    svg += entry.date;
+	}
+	else {
+	    var date = '';
+	    if (entry.year) {
+		date = entry.year;
+	    }
+	    if (entry.month) {
+		if (date) date += '/';
+		date += entry.month;
+	    }
+	    if (entry.day) {
+		if (date) date += '/';
+		date += entry.day;
+	    }
+	    svg += date;
+	    svg += '</text>\n';
+	}
+	if (entry.taxon) {
+	    svg += '<text x="50mm" y="110mm" font-family="Arial" font-size="12">' + entry.taxon + "</text>\n" ;
+	}
+	if (entry.collector || entry['det.']) {
+	    var pre;
+	    var post;
+	    if (entry.collector) { pre = "leg."; post = entry.collector; }
+	    if (entry['det.']) {
+		if (pre) pre += '/';
+		pre += 'det.';
+	       if (post) post += '/';
+		post += entry['det.'];
+	    }
+	    svg += '<text x="150mm" y="110mm" font-family="Arial" font-size="12">' + pre + ' ' + post + "</text>\n" ;
+	}
+    }
+    svg += '</page></pageSet></svg>';
+    console.log(svg);
+    var data = new Blob ([svg],{type: 'text/plain'});
+    saveAs(data, entry.accno + ".svg" );
 }
 
 function table_of_database () {
     document.getElementById("output").innerHTML = "<h1>Database</h1>\n";
-    document.getElementById("output").innerHTML += table_of_entries( database );
+    table_of_entries( database,document.getElementById("output") );
+    //add_button_listeners ( database );
     document.getElementById("output").innerHTML += '<button type="button" onclick="save_database_as_table()">Save as cvs table</button>';
 }
 
 function table_of_new_entries () {
     document.getElementById("output").innerHTML = "<h1>Entries to submit</h1>\n";
-    document.getElementById("output").innerHTML += table_of_entries(new_entries); 
+    table_of_entries(new_entries,document.getElementById("output")); 
+    //add_button_listeners ( new_entries );
     document.getElementById("output").innerHTML += '<button type="button" onclick="submit_to_database()">Submit to database</button>'; 	
     document.getElementById("output").innerHTML += '<button type="button" onclick="save_new_entries_as_table()">Save as cvs table</button>';
     document.getElementById("output").innerHTML += '<br><button type="button" onclick="update_database()">Update database</button>'; 	
@@ -301,13 +351,17 @@ function get_headers ( entryList ) {
     return headers;
 }
 
-function table_of_entries ( entryList ) {
+var listeners={};
+function table_of_entries ( entryList, area ) {
+    console.log("Print table");
+    //area.innerHTML += "<p>Starting</p>";
     var headers = get_headers( entryList );
     var output = '';
     output += "<table>\n<tr>";
     for (i = 0; i < headers.length; ++i) {
 	output += "<th>" + headers[i] + "</th>"
     }
+    output += "<th>Envelope</th>";
     output += "</tr>\n";
     for (i=0; i< entryList.length; ++i) {
 	output += "<tr>";
@@ -316,10 +370,18 @@ function table_of_entries ( entryList ) {
 	    if (entryList[i][headers[j]]) { output += entryList[i][headers[j]]; }
 	    output += "</td>";
 	}
+	output += "<td><button type=\"button\" id=\"envelope_" + i + "\">Get envelope</button>";
 	output += "</tr>";
     }
     output += "</table>";
-    return output;
+    area.innerHTML += output;
+    //return area;
+    listeners.envelops = [];
+    for (i=0; i < entryList.length; ++i) {
+	listeners.envelops[i] = document.getElementById("envelope_" +i);
+	listeners.envelops[i].myEntry = entryList[i];
+	listeners.envelops[i].addEventListener('click', function (evt) { get_envelope (evt.target.myEntry)});
+    }
 }
 
 function get_database_as_csv ( entryList, separator = ';' ) {
@@ -474,11 +536,11 @@ function download_database () {
     console.log("Downloading database from server");
     fetch("/getdatabase").then(function(resp) { return resp.json(); }).then(function (myJson) { database = myJson; }).then(function () {
 	console.log(database);
-	output = "<h1>Read data</h1>\n";
-	output += "<p>Read " + database.length + " entries.</p><p>";
-	output += table_of_entries(database);
-	output += '</p>';
-	document.getElementById("output").innerHTML += output;
+	document.getElementById("output").innerHTML += "<h1>Read data</h1>\n";
+	document.getElementById("output").innerHTML += "<p>Read " + database.length + " entries.</p><p>";
+	table_of_entries(database,document.getElementById("output"));
+	document.getElementById("output").innerHTML += '</p>';
+	//document.getElementById("output").innerHTML += output;
     });
 }
 
