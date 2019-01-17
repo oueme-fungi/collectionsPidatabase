@@ -1,6 +1,7 @@
 # collectionsPidatabase
 A node JS server hosting a JSON format database, and a html5 app to interact with it.
-All files should be on a server. The client_side_app.html will be served to the client but can also be used directly on the client, except for that the database cannot be loaded from the server and new data cannot be submitted to or updated in the database.
+All files should be on a server.
+The client_side_app.html will be served to the client but can also be used directly on the client without connection with the server, except for that the database cannot be loaded from the server and new data cannot be submitted to or updated in the database.
 
 We use this server on a Raspberry Pi Zero W, to be served on a local network. The security is thus in who has the password to the network.
 
