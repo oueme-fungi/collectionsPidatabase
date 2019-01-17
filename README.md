@@ -1,5 +1,5 @@
 # collectionsPidatabase
-A node JS server hosting a mongoDB database, and a html5 app to interact with it.
+A node JS server hosting a JSON format database, and a html5 app to interact with it.
 All files should be on a server. The client_side_app.html will be served to the client but can also be used directly on the client, except for that the database cannot be loaded from the server and new data cannot be submitted to or updated in the database.
 
 We use this server on a Raspberry Pi Zero W, to be served on a local network. The security is thus in who has the password to the network.
@@ -7,9 +7,9 @@ We use this server on a Raspberry Pi Zero W, to be served on a local network. Th
 The following is a guide to set up the Pi server:
 
 Install raspbian lite on a microSD card
-When creating the iso create a file named ssh on the boot partition to enable ssh from start
+When creating the iso create a file named ssh on the boot partition to enable ssh from start.
 
-conect a scren and keyboard to the pi, start it and open a console and run:
+Connect a screen and keyboard to the pi, start it and open a console and run:
 
 sudo raspi-config
     expand filesystem to fill sd card
@@ -31,15 +31,12 @@ node -v
 npm -v
 sudo apt-get install git
 
-sudo apt-get install mongodb
-
 Restart
 sudo shutdown -r now
 
 npm install pm2@latest -g
-npm install mongodb --save
 
-scp iall files to a folder suitable folder on the server (e.g. web)
+scp all files to a suitable folder on the server (e.g. web)
 
 The server is created in node.js using NGtrippServer.js
 pm2 will run the server as a service that will start automatically when the Pi starts
@@ -55,3 +52,5 @@ The other javascripts (.js) are for database maintenance (creating database base
 
 To set up local network check out check out https://www.raspberrypi.org/documentation/configuration/wireless/access-point.md
 Do this last as you may not have any internet connection afterwards, depending on your setup
+
+The setup was tested on a National Geographic funded expedition (CP-126R-12) going through five countries in West Africa from June 19-July 14, 2018.

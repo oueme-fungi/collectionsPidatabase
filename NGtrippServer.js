@@ -1,6 +1,5 @@
 var http = require('http');
 var fs = require('fs');
-//var MongoClient = require('mongodb').MongoClient;
 
 var inuse = 0;
 
